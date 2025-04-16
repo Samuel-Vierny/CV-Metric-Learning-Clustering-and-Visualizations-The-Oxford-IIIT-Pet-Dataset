@@ -1,0 +1,51 @@
+Found 35 unique breeds:
+- 12 cat breeds (uppercase first letter)
+- 23 dog breeds (lowercase first letter)
+
+--- Cat Breeds ---
+Abyssinian (Example: Abyssinian_1.jpg, Count: 200)
+Bengal (Example: Bengal_1.jpg, Count: 200)
+Birman (Example: Birman_1.jpg, Count: 200)
+Bombay (Example: Bombay_1.jpg, Count: 200)
+British (Example: British_Shorthair_10.jpg, Count: 200)
+Egyptian (Example: Egyptian_Mau_1.jpg, Count: 200)
+Maine (Example: Maine_Coon_1.jpg, Count: 200)
+Persian (Example: Persian_1.jpg, Count: 200)
+Ragdoll (Example: Ragdoll_1.jpg, Count: 200)
+Russian (Example: Russian_Blue_1.jpg, Count: 200)
+Siamese (Example: Siamese_100.jpg, Count: 200)
+Sphynx (Example: Sphynx_1.jpg, Count: 200)
+
+--- Dog Breeds ---
+american (Example: american_bulldog_10.jpg, Count: 400)
+basset (Example: basset_hound_1.jpg, Count: 200)
+beagle (Example: beagle_1.jpg, Count: 200)
+boxer (Example: boxer_1.jpg, Count: 200)
+chihuahua (Example: chihuahua_1.jpg, Count: 200)
+english (Example: english_cocker_spaniel_1.jpg, Count: 400)
+german (Example: german_shorthaired_1.jpg, Count: 200)
+great (Example: great_pyrenees_1.jpg, Count: 200)
+havanese (Example: havanese_1.jpg, Count: 200)
+japanese (Example: japanese_chin_1.jpg, Count: 200)
+keeshond (Example: keeshond_1.jpg, Count: 200)
+leonberger (Example: leonberger_1.jpg, Count: 200)
+miniature (Example: miniature_pinscher_1.jpg, Count: 200)
+newfoundland (Example: newfoundland_1.jpg, Count: 200)
+pomeranian (Example: pomeranian_1.jpg, Count: 200)
+pug (Example: pug_1.jpg, Count: 200)
+saint (Example: saint_bernard_1.jpg, Count: 200)
+samoyed (Example: samoyed_1.jpg, Count: 200)
+scottish (Example: scottish_terrier_1.jpg, Count: 199)
+shiba (Example: shiba_inu_1.jpg, Count: 200)
+staffordshire (Example: staffordshire_bull_terrier_1.jpg, Count: 191)
+wheaten (Example: wheaten_terrier_1.jpg, Count: 200)
+yorkshire (Example: yorkshire_terrier_1.jpg, Count: 200)
+
+--- List of Breeds (for config file) ---
+['Abyssinian', 'Bengal', 'Birman', 'Bombay', 'British', 'Egyptian', 'Maine', 'Persian', 'Ragdoll', 'Russian', 'Siamese', 'Sphynx', 'american', 'basset', 'beagle', 'boxer', 'chihuahua', 'english', 'german', 'great', 'havanese', 'japanese', 'keeshond', 'leonberger', 'miniature', 'newfoundland', 'pomeranian', 'pug', 'saint', 'samoyed', 'scottish', 'shiba', 'staffordshire', 'wheaten', 'yorkshire']
+
+--- For Few-Shot Holdout Configuration ---
+If your FEW_SHOT_HOLDOUT_BREEDS list includes these breeds:
+['american_bulldog', 'Egyptian_Mau', 'samoyed', 'Siamese', 'wheaten_terrier']
+
+Make sure they match exactly with names in this file!

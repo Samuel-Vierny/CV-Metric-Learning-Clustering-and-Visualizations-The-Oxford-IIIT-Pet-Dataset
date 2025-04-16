@@ -62,26 +62,49 @@ class OxfordPetsDataModule:
             transforms.ToTensor(),
             transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
         ])
-        
+            
     def _parse_annotations(self):
         """Parse the dataset annotations"""
         # Get all image files
         image_files = [f for f in os.listdir(self.data_dir) if f.endswith('.jpg')]
         
-        # Extract breed names and create a mapping to class IDs
-        breed_names = sorted(list(set([img.split('_')[0].lower() for img in image_files])))
+        # FIXED: Extract breed names correctly by preserving compound names
+        # and maintaining original capitalization
+        breed_names = []
+        breed_to_idx = {}
+        seen_breeds = set()
+        
+        for img_file in image_files:
+            # Extract everything before the last underscore and number
+            import re
+            match = re.match(r'(.+)_(\d+)\.jpg$', img_file)
+            if match:
+                breed = match.group(1)  # Preserve original capitalization
+                if breed not in seen_breeds:
+                    seen_breeds.add(breed)
+                    breed_names.append(breed)
+        
+        # Sort the breed names and create the mapping
+        breed_names = sorted(breed_names)
         breed_to_idx = {breed: idx for idx, breed in enumerate(breed_names)}
         
         # Create file list with (image_path, class_id)
         file_list = []
         for img_file in image_files:
-            breed = img_file.split('_')[0].lower()
-            class_id = breed_to_idx[breed]
-            file_list.append((img_file, class_id))
+            match = re.match(r'(.+)_(\d+)\.jpg$', img_file)
+            if match:
+                breed = match.group(1)
+                class_id = breed_to_idx[breed]
+                file_list.append((img_file, class_id))
         
         self.breed_names = breed_names
         self.num_classes = len(breed_names)
         self.breed_to_idx = breed_to_idx
+        
+        # Debug: Print detected breeds
+        if hasattr(self.config, 'FEW_SHOT_HOLDOUT_BREEDS'):
+            print("Configured holdout breeds:", self.config.FEW_SHOT_HOLDOUT_BREEDS)
+            print("Found these in dataset:", [b for b in self.config.FEW_SHOT_HOLDOUT_BREEDS if b in self.breed_to_idx])
         
         return file_list, breed_names, breed_to_idx
     

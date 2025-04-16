@@ -17,21 +17,21 @@ class Config:
     IMG_SIZE = 224
     TRAIN_VAL_SPLIT = 0.8  # 80% of non-test data for training, 20% for validation
     TRAIN_TEST_SPLIT = 0.9  # 90% for train+val, 10% for test
-    NUM_WORKERS = 15
+    NUM_WORKERS = 13
     BATCH_SIZE = 64
     
     # Model
     BACKBONE = "resnet18"  # Options: "resnet18", "resnet34", "resnet50"
     PRETRAINED = True
-    EMBEDDING_SIZE = 128
+    EMBEDDING_SIZE = 256
     
     # Training
-    NUM_EPOCHS = 3
+    NUM_EPOCHS = 5
     LEARNING_RATE = 1e-4
     WEIGHT_DECAY = 1e-5
     
     # Loss Function
-    LOSS_TYPE = "triplet"  # Options: "triplet", "contrastive", "arcface"
+    LOSS_TYPE = "arcface"  # Options: "triplet", "contrastive", "arcface"
     MARGIN = 0.3  # For triplet and contrastive loss
     
     # Triplet Mining
@@ -55,9 +55,9 @@ class Config:
     # Holdout Breeds for Few-shot Learning
     FEW_SHOT_HOLDOUT_BREEDS = [
         "american_bulldog",
-        "egyptian_mau",
+        "Egyptian_Mau",
         "samoyed",
-        "siamese",
+        "Siamese",
         "wheaten_terrier"
     ]
     

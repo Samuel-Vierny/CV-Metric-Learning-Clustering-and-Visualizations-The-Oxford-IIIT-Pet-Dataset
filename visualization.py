@@ -1,6 +1,11 @@
 """
 Visualization utilities for Deep Metric Learning
 """
+
+# Turned off warning: You may see slightly different numerical results due to floating-point round-off errors
+import os
+os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
+
 import os
 import torch
 import numpy as np
@@ -11,6 +16,10 @@ import umap
 import logging
 import seaborn as sns
 import pandas as pd
+
+# Configure logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
 
 class Visualizer:
     """Class for visualizing embeddings and results"""
@@ -238,3 +247,48 @@ class Visualizer:
             plt.close()
         
         self.logger.info(f"Retrieval examples saved to {save_dir}")
+
+def main():
+    # Import necessary modules
+    from config import Config
+    
+    # Load your trained model
+    config = Config()
+    
+    print("Starting visualization process...")
+    
+    # Load the model
+    model_path = os.path.join(config.MODEL_DIR, "best_model.pth")
+    print(f"Attempting to load model from: {model_path}")
+    
+    try:
+        # Load the checkpoint
+        checkpoint = torch.load(model_path)
+        print(f"Checkpoint loaded successfully, type: {type(checkpoint)}")
+        
+        # Import your model architecture
+        from model import ArcFaceModel  # Replace with your actual model class
+        
+        # Initialize the model
+        model = ArcFaceModel(config)  # Adjust parameters as needed
+        
+        # Load the state dictionary
+        if 'model_state_dict' in checkpoint:
+            model.load_state_dict(checkpoint['model_state_dict'])
+        elif 'state_dict' in checkpoint:
+            model.load_state_dict(checkpoint['state_dict'])
+        elif isinstance(checkpoint, dict) and all(isinstance(k, str) for k in checkpoint.keys()):
+            # The checkpoint might be the state dict itself
+            model.load_state_dict(checkpoint)
+        else:
+            print(f"Checkpoint keys: {checkpoint.keys()}")
+            raise ValueError("Could not determine how to load model from checkpoint")
+            
+        print(f"Model initialized and weights loaded successfully")
+    except Exception as e:
+        print(f"Error loading model: {e}")
+        return
+    
+
+if __name__ == "__main__":
+    main()
