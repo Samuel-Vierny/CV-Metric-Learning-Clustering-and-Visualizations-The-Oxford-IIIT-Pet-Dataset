@@ -9,6 +9,9 @@ from tqdm import tqdm
 class HardNegativeMiner:
     """
     Class implementing hard negative mining for improved training of deep metric learning models
+
+     # Initialize with model, data, and configuration
+
     """
     def __init__(self, model, data_module, config):
         self.model = model
@@ -26,6 +29,16 @@ class HardNegativeMiner:
         
         Returns a list of (anchor_idx, positive_idx, negative_idx) triplets
         with hard negatives that are close to the anchor but from a different class
+
+        # 1. Compute embeddings for all training samples
+        # 2. Calculate pairwise distances between embeddings
+        # 3. For each anchor:
+        #    - Find samples of the same class (positives)
+        #    - Find samples of different classes (negatives)
+        #    - Sort negatives by distance and select the closest ones
+        #    - Create triplets: (anchor, positive, hard negative)
+        # 4. Return list of hard triplets
+
         """
         self.logger.info("Mining hard negative examples...")
         
@@ -138,6 +151,9 @@ class HardNegativeMiner:
         Returns:
             images: Tensor of shape (batch_size * 3, C, H, W)
             labels: Tensor of shape (batch_size * 3) with labels indicating triplet membership
+
+        # Create training batches from the mined triplets
+
         """
         # Sample a subset of triplets
         if len(triplets) > batch_size:
@@ -187,6 +203,14 @@ class HardNegativeMiner:
             num_epochs: Number of epochs to train
             mining_frequency: Mine hard negatives every this many epochs
             num_hard_triplets: Number of hard triplets to mine each time
+
+
+        # Train model with periodic hard negative mining
+        # 1. Train normally for some epochs
+        # 2. Mine hard negatives periodically
+        # 3. Train specifically on hard triplets
+        # 4. Continue regular training
+        
         """
         self.logger.info(f"Training with hard negative mining every {mining_frequency} epochs")
         
