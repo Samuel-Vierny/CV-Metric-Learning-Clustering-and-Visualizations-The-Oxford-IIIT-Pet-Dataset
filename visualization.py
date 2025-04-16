@@ -11,6 +11,13 @@ import umap
 import logging
 import seaborn as sns
 import pandas as pd
+import argparse
+import sys
+import traceback
+
+# Configure logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
 
 class Visualizer:
     """Class for visualizing embeddings and results"""
@@ -239,5 +246,100 @@ class Visualizer:
         
         self.logger.info(f"Retrieval examples saved to {save_dir}")
 
-
+def main():
+    """Main function to run visualization as a standalone script"""
+    # Parse arguments
+    parser = argparse.ArgumentParser(description='Visualization for Deep Metric Learning')
+    parser.add_argument('--model_path', type=str, default=None, 
+                       help='Path to model checkpoint (default: outputs/models/best_model.pth)')
+    parser.add_argument('--perplexity', type=int, default=None, 
+                       help='Perplexity for t-SNE (default: from config)')
+    parser.add_argument('--n_neighbors', type=int, default=None,
+                       help='Number of neighbors for UMAP (default: from config)')
+    parser.add_argument('--num_queries', type=int, default=5,
+                       help='Number of query examples for retrieval visualization')
+    args = parser.parse_args()
+    
+    try:
+        # Import necessary modules here to avoid circular imports
+        from config import Config
+        from data_module import OxfordPetsDataModule
+        from model import EmbeddingNet, ArcFaceModel
         
+        # Load config
+        config = Config()
+        
+        # Override config values if provided
+        if args.perplexity is not None:
+            config.TSNE_PERPLEXITY = args.perplexity
+        if args.n_neighbors is not None:
+            config.UMAP_N_NEIGHBORS = args.n_neighbors
+        
+        # Create output directories
+        os.makedirs(config.RESULTS_DIR, exist_ok=True)
+        
+        # Set up data module
+        logger.info("Setting up data module...")
+        data_module = OxfordPetsDataModule(config)
+        data_module.setup()
+        dataloaders = data_module.get_dataloaders()
+        
+        # Set default model path if not provided
+        model_path = args.model_path if args.model_path else os.path.join(config.MODEL_DIR, "best_model.pth")
+        
+        logger.info(f"Starting visualization process...")
+        logger.info(f"Loading model from: {model_path}")
+        
+        # Load the checkpoint
+        checkpoint = torch.load(model_path, map_location=config.DEVICE)
+        logger.info(f"Checkpoint loaded successfully")
+        
+        # Initialize correct model type based on config or checkpoint
+        if 'config' in checkpoint and hasattr(checkpoint['config'], 'LOSS_TYPE'):
+            config_in_checkpoint = checkpoint['config']
+            loss_type = config_in_checkpoint.LOSS_TYPE
+        else:
+            loss_type = config.LOSS_TYPE if hasattr(config, 'LOSS_TYPE') else 'triplet'
+        
+        logger.info(f"Using loss type: {loss_type}")
+        if loss_type == 'arcface':
+            model = ArcFaceModel(config, data_module.num_classes)
+        else:
+            model = EmbeddingNet(config)
+        
+        # Load the state dictionary
+        if 'model_state_dict' in checkpoint:
+            model.load_state_dict(checkpoint['model_state_dict'])
+        elif 'state_dict' in checkpoint:
+            model.load_state_dict(checkpoint['state_dict'])
+        else:
+            # Try loading as direct state dict
+            model.load_state_dict(checkpoint)
+            
+        logger.info(f"Model initialized and weights loaded successfully")
+        
+        # Create visualizer
+        visualizer = Visualizer(config, model, data_module)
+        
+        # Run visualizations
+        test_loader = dataloaders['test']
+        
+        logger.info("Creating t-SNE visualization...")
+        visualizer.visualize_tsne(test_loader)
+        
+        logger.info("Creating UMAP visualization...")
+        visualizer.visualize_umap(test_loader)
+        
+        logger.info(f"Creating retrieval examples (n={args.num_queries})...")
+        visualizer.visualize_retrieval_examples(test_loader, num_queries=args.num_queries)
+        
+        logger.info(f"All visualizations completed successfully!")
+        logger.info(f"Visualizations saved to {config.RESULTS_DIR}")
+        
+    except Exception as e:
+        logger.error(f"Error in visualization process: {str(e)}")
+        traceback.print_exc()
+        sys.exit(1)
+
+if __name__ == "__main__":
+    main()
