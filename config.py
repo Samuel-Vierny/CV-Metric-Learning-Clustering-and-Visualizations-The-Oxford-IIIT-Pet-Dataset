@@ -26,7 +26,7 @@ class Config:
     EMBEDDING_SIZE = 256
     
     # Training
-    NUM_EPOCHS = 5
+    NUM_EPOCHS = 1
     LEARNING_RATE = 1e-4
     WEIGHT_DECAY = 1e-5
     
@@ -61,6 +61,22 @@ class Config:
         "wheaten_terrier"
     ]
     
+    # Learning Rate Scheduler
+    SCHEDULER_TYPE = "warmup_cosine"  # Options: "none", "step", "plateau", "cosine", "warmup_cosine"
+    SCHEDULER_STEP_SIZE = 10  # For StepLR
+    SCHEDULER_GAMMA = 0.1     # Learning rate decay factor
+    SCHEDULER_PATIENCE = 5    # For ReduceLROnPlateau
+    SCHEDULER_MIN_LR = 1e-6   # Minimum learning rate
+    SCHEDULER_T_MAX = None    # For cosine annealing (uses NUM_EPOCHS if None)
+    WARMUP_EPOCHS = 1         # Warmup epochs for warmup scheduler
+
+    # Regularization
+    DROPOUT_RATE = 0.2        # Dropout rate in network
+    EARLY_STOPPING = True    # Whether to use early stopping
+    EARLY_STOPPING_PATIENCE = 3  # Patience for early stopping
+    EARLY_STOPPING_DELTA = 0.0001 # Minimum change to qualify as improvement
+
+
     def __init__(self, **kwargs):
         for key, value in kwargs.items():
             setattr(self, key, value)

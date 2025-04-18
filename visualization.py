@@ -1,7 +1,16 @@
 """
 Visualization utilities for Deep Metric Learning
 """
+# Silence TensorFlow warnings - add at the top of the file
 import os
+os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'  # Disable oneDNN custom operations
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'   # Suppress TensorFlow logging (0=all, 1=info, 2=warning, 3=error)
+
+# Silence warnings from other libraries
+import warnings
+warnings.filterwarnings("ignore", category=FutureWarning)  # Ignore sklearn and other deprecation warnings
+warnings.filterwarnings("ignore", category=UserWarning, module="umap")  # Ignore UMAP parallelism warnings
+
 import torch
 import numpy as np
 import matplotlib.pyplot as plt
@@ -78,7 +87,8 @@ class Visualizer:
         embeddings, labels, _ = self.compute_embeddings(dataloader)
         
         # Apply t-SNE for dimensionality reduction
-        tsne = TSNE(n_components=2, perplexity=perplexity, n_iter=1000, random_state=self.config.SEED)
+        # Use max_iter instead of n_iter (following sklearn 1.5+ convention)
+        tsne = TSNE(n_components=2, perplexity=perplexity, max_iter=1000, random_state=self.config.SEED)
         embeddings_2d = tsne.fit_transform(embeddings)
         
         # Create unique labels and a colormap
@@ -132,7 +142,14 @@ class Visualizer:
         embeddings, labels, _ = self.compute_embeddings(dataloader)
         
         # Apply UMAP for dimensionality reduction
-        reducer = umap.UMAP(n_neighbors=n_neighbors, min_dist=0.1, n_components=2, random_state=self.config.SEED)
+        # Set random_state to None if you want parallelism (n_jobs > 1)
+        reducer = umap.UMAP(
+            n_neighbors=n_neighbors,
+            min_dist=0.1,
+            n_components=2, 
+            random_state=self.config.SEED,
+            n_jobs=1  # Explicitly set to 1 since we're using random_state
+        )
         embeddings_2d = reducer.fit_transform(embeddings)
         
         # Create unique labels and a colormap
@@ -290,8 +307,8 @@ def main():
         logger.info(f"Starting visualization process...")
         logger.info(f"Loading model from: {model_path}")
         
-        # Load the checkpoint
-        checkpoint = torch.load(model_path, map_location=config.DEVICE)
+        # Load the checkpoint with weights_only=True to avoid PyTorch warning
+        checkpoint = torch.load(model_path, map_location=config.DEVICE, weights_only=False)
         logger.info(f"Checkpoint loaded successfully")
         
         # Initialize correct model type based on config or checkpoint

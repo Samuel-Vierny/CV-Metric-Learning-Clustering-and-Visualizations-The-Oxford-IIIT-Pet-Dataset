@@ -73,3 +73,15 @@ def compute_eer(fpr, tpr, thresholds):
     eer = (fpr[idx] + fnr[idx]) / 2
     eer_threshold = thresholds[idx]
     return eer, eer_threshold
+
+def plot_learning_rate(learning_rates, save_path):
+    """Plot learning rate schedule"""
+    plt.figure(figsize=(10, 5))
+    plt.plot(range(1, len(learning_rates) + 1), learning_rates)
+    plt.title('Learning Rate Schedule')
+    plt.xlabel('Epoch')
+    plt.ylabel('Learning Rate')
+    plt.yscale('log')  # Log scale for better visualization
+    plt.grid(True, which="both", ls="--", alpha=0.5)
+    plt.savefig(save_path)
+    plt.close()

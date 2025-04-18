@@ -10,6 +10,8 @@ import os
 import cv2
 from torchvision import transforms
 import logging
+import argparse
+import sys
 
 class GradCAM:
     """
@@ -23,18 +25,24 @@ class GradCAM:
         
         # Get a hook for the selected layer
         if layer_name is None:
-            # Default to the last convolutional layer in ResNet
+            # Default to the last convolutional layer in ResNet based on architecture
             if hasattr(model, 'embedding_net'):
-                target_layer = model.embedding_net.backbone[-2][-1].conv2
+                # For ResNet50, the last conv layer is conv3 in the last bottleneck block
+                if 'resnet50' in str(model.embedding_net.backbone):
+                    target_layer = self._find_last_conv_layer(model.embedding_net.backbone)
+                # For ResNet18/34, the last conv layer is conv2 in the last basic block
+                else:
+                    target_layer = self._find_last_conv_layer(model.embedding_net.backbone)
             else:
-                target_layer = model.backbone[-2][-1].conv2
+                target_layer = self._find_last_conv_layer(model.backbone)
         else:
             # Find the layer by name
             target_layer = self._get_layer_by_name(self.model, layer_name)
         
         if target_layer is None:
-            raise ValueError(f"Could not find layer: {layer_name}")
+            raise ValueError(f"Could not find appropriate layer for GradCAM. Please specify a valid layer_name.")
         
+        self.logger.info(f"Using layer {type(target_layer).__name__} for GradCAM")
         self.target_layer = target_layer
         
         # Register hooks
@@ -46,6 +54,44 @@ class GradCAM:
         
         # Register backward hook
         self.backward_hook = self.target_layer.register_full_backward_hook(self._backward_hook)
+    
+    def _find_last_conv_layer(self, backbone):
+        """Find the last convolutional layer in the backbone"""
+        # Navigate through the backbone to find the last convolutional layer
+        last_conv = None
+        
+        # Approach 1: Try to find the last layer group and its last block
+        try:
+            # For ResNet architectures, the last layer is usually in layer4/layer group 7
+            if hasattr(backbone, 'layer4'):
+                last_block = backbone.layer4[-1]
+                if hasattr(last_block, 'conv3'):  # Bottleneck block (ResNet50)
+                    last_conv = last_block.conv3
+                elif hasattr(last_block, 'conv2'):  # Basic block (ResNet18/34)
+                    last_conv = last_block.conv2
+            # Alternative approach if the above doesn't work
+            elif len(list(backbone.children())) >= 8:
+                # Try to access the last layer group and its last block
+                last_layer_group = list(backbone.children())[-3]  # Usually the last layer group is 3rd from end
+                last_block = last_layer_group[-1]
+                
+                # Check for conv2 (ResNet18/34) or conv3 (ResNet50)
+                if hasattr(last_block, 'conv3'):
+                    last_conv = last_block.conv3
+                elif hasattr(last_block, 'conv2'):
+                    last_conv = last_block.conv2
+        except (AttributeError, IndexError) as e:
+            self.logger.warning(f"Could not find last conv layer using standard approach: {str(e)}")
+        
+        # Approach 2: Fallback to searching through all modules
+        if last_conv is None:
+            for name, module in reversed(list(backbone.named_modules())):
+                if isinstance(module, torch.nn.Conv2d):
+                    self.logger.info(f"Using fallback approach, found conv layer: {name}")
+                    last_conv = module
+                    break
+        
+        return last_conv
     
     def _get_layer_by_name(self, model, layer_name):
         """Get a layer module by name"""
@@ -73,8 +119,10 @@ class GradCAM:
     
     def __del__(self):
         """Clean up hooks on deletion"""
-        self.forward_hook.remove()
-        self.backward_hook.remove()
+        if hasattr(self, 'forward_hook'):
+            self.forward_hook.remove()
+        if hasattr(self, 'backward_hook'):
+            self.backward_hook.remove()
     
     def _preprocess_image(self, image_path, transform=None):
         """Load and preprocess an image"""
@@ -263,3 +311,134 @@ class GradCAM:
             self.logger.info(f"Grad-CAM visualization saved to {save_path}")
         
         self.logger.info(f"Generated {len(samples)} Grad-CAM visualizations in {save_dir}")
+
+
+# Add standalone script functionality
+def main():
+    # Set up argument parser
+    parser = argparse.ArgumentParser(description='Generate Grad-CAM visualizations for a trained model')
+    parser.add_argument('--model_path', type=str, default='outputs/models/best_model.pth',
+                        help='Path to the trained model checkpoint')
+    parser.add_argument('--data_dir', type=str, default='data/archive/images',
+                        help='Directory containing the dataset images')
+    parser.add_argument('--output_dir', type=str, default=None,
+                        help='Directory to save Grad-CAM visualizations (default: outputs/results/grad_cam)')
+    parser.add_argument('--num_samples', type=int, default=5,
+                        help='Number of samples to visualize (default: 5)')
+    parser.add_argument('--layer_name', type=str, default=None,
+                        help='Name of the layer to use for Grad-CAM (default: last conv layer)')
+    parser.add_argument('--batch_size', type=int, default=64,
+                        help='Batch size for data loading (default: 64)')
+    parser.add_argument('--img_size', type=int, default=224,
+                        help='Image size for processing (default: 224)')
+    parser.add_argument('--backbone', type=str, default=None,
+                        help='Backbone CNN architecture (resnet18, resnet34, resnet50), defaults to checkpoint value')
+    parser.add_argument('--embedding_size', type=int, default=256,
+                        help='Embedding dimension size (default: 256)')
+    
+    args = parser.parse_args()
+    
+    # Set up logging
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+        handlers=[logging.StreamHandler()]
+    )
+    logger = logging.getLogger(__name__)
+    
+    try:
+        # Import necessary modules
+        logger.info("Importing required modules...")
+        from config import Config
+        from data_module import OxfordPetsDataModule
+        from model import EmbeddingNet, ArcFaceModel
+        
+        # Load checkpoint to determine model architecture
+        logger.info(f"Loading checkpoint from {args.model_path} to determine configuration...")
+        checkpoint = torch.load(args.model_path, map_location='cpu')
+        
+        # Extract backbone from checkpoint if available
+        backbone = args.backbone  # Default to arg-provided backbone
+        if backbone is None:
+            if 'config' in checkpoint and hasattr(checkpoint['config'], 'BACKBONE'):
+                backbone = checkpoint['config'].BACKBONE
+                logger.info(f"Using backbone from checkpoint: {backbone}")
+            else:
+                logger.warning("Could not determine backbone from checkpoint. Defaulting to resnet18.")
+                backbone = "resnet18"
+        
+        # Create config with the correct backbone
+        logger.info(f"Setting up configuration with backbone: {backbone}...")
+        config = Config()
+        config.DATA_DIR = args.data_dir
+        config.BATCH_SIZE = args.batch_size
+        config.IMG_SIZE = args.img_size
+        config.BACKBONE = backbone
+        config.EMBEDDING_SIZE = args.embedding_size
+        
+        # Determine loss type from checkpoint if available
+        loss_type = "triplet"  # Default
+        if 'config' in checkpoint and hasattr(checkpoint['config'], 'LOSS_TYPE'):
+            loss_type = checkpoint['config'].LOSS_TYPE
+            config.LOSS_TYPE = loss_type
+            logger.info(f"Using loss type from checkpoint: {loss_type}")
+        
+        # Create output directory
+        if args.output_dir:
+            output_dir = args.output_dir
+        else:
+            output_dir = os.path.join('outputs', 'results', 'grad_cam')
+        os.makedirs(output_dir, exist_ok=True)
+        config.RESULTS_DIR = os.path.dirname(output_dir)
+        
+        # Set up data module
+        logger.info("Setting up data module...")
+        data_module = OxfordPetsDataModule(config)
+        data_module.setup()
+        
+        # Create model with the correct architecture
+        if loss_type == 'arcface':
+            logger.info(f"Creating ArcFace model with {backbone} backbone...")
+            model = ArcFaceModel(config, data_module.num_classes)
+        else:
+            logger.info(f"Creating Embedding model with {backbone} backbone...")
+            model = EmbeddingNet(config)
+        
+        # Load model weights
+        try:
+            logger.info("Loading model weights...")
+            if 'model_state_dict' in checkpoint:
+                model.load_state_dict(checkpoint['model_state_dict'])
+            elif 'state_dict' in checkpoint:
+                model.load_state_dict(checkpoint['state_dict'])
+            else:
+                # Assume it's just the state dict
+                model.load_state_dict(checkpoint)
+            logger.info("Model weights loaded successfully")
+        except Exception as e:
+            logger.error(f"Error loading model weights: {str(e)}")
+            sys.exit(1)
+        
+        # Move model to device
+        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        model = model.to(device)
+        logger.info(f"Model loaded successfully to {device}")
+        
+        # Create Grad-CAM instance
+        logger.info("Creating Grad-CAM instance...")
+        gradcam = GradCAM(model, layer_name=args.layer_name)
+        
+        # Generate visualizations
+        logger.info(f"Generating Grad-CAM visualizations for {args.num_samples} samples...")
+        gradcam.generate_multiple(data_module, num_samples=args.num_samples, save_dir=output_dir)
+        
+        logger.info(f"Grad-CAM visualizations completed. Results saved to {output_dir}")
+        
+    except Exception as e:
+        logger.error(f"Error generating Grad-CAM visualizations: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        sys.exit(1)
+
+if __name__ == "__main__":
+    main()

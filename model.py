@@ -40,10 +40,11 @@ class EmbeddingNet(nn.Module):
         # Remove the final fully connected layer
         self.backbone = nn.Sequential(*list(self.backbone.children())[:-1])
         
-        # Projection head - maps features to embedding space
+        # Projection head - maps features to embedding space with dropout for regularization
         self.projection_head = nn.Sequential(
             nn.Linear(feature_dim, 512),
             nn.ReLU(),
+            nn.Dropout(config.DROPOUT_RATE),  # Add dropout after activation
             nn.Linear(512, config.EMBEDDING_SIZE)
         )
         

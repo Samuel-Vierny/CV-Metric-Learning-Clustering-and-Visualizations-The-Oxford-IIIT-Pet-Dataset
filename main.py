@@ -67,6 +67,17 @@ def parse_args():
     
     # Load model
     parser.add_argument('--load_model', type=str, default=None, help='Path to model checkpoint to load')
+
+    # Learning scheduler 
+    parser.add_argument('--scheduler_type', type=str, default=None, 
+                        choices=['none', 'step', 'plateau', 'cosine', 'warmup_cosine'],
+                        help='Type of learning rate scheduler')
+    
+    #Regularization
+    parser.add_argument('--dropout_rate', type=float, default=None, 
+                        help='Dropout rate for regularization')
+    parser.add_argument('--early_stopping', action='store_true',
+                        help='Enable early stopping')
     
     return parser.parse_args()
 
